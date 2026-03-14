@@ -15,6 +15,9 @@ models/
 # Build
 dist/
 build/
+installer/build/
+installer/frontend/dist/
+installer/frontend/node_modules/
 
 # OS
 .DS_Store
