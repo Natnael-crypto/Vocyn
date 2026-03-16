@@ -1,0 +1,51 @@
+[
+    {
+        "name": "PySide6",
+        "license": "LGPL-3.0",
+        "website": "https://doc.qt.io/qtforpython/",
+        "description": "Qt bindings for Python used for UI.",
+        "file": "LICENSE-PySide6-LGPLv3.txt"
+    },
+    {
+        "name": "Qt",
+        "license": "LGPL-3.0",
+        "website": "https://www.qt.io/",
+        "description": "Cross platform UI framework.",
+        "file": "LICENSE-Qt-LGPLv3.txt"
+    },
+    {
+        "name": "faster-whisper",
+        "license": "MIT",
+        "website": "https://github.com/SYSTRAN/faster-whisper",
+        "description": "Speech recognition using Whisper models.",
+        "file": "LICENSE-faster-whisper-MIT.txt"
+    },
+    {
+        "name": "ctranslate2",
+        "license": "MIT",
+        "website": "https://github.com/OpenNMT/CTranslate2",
+        "description": "High performance inference engine.",
+        "file": "LICENSE-ctranslate2-MIT.txt"
+    },
+    {
+        "name": "numpy",
+        "license": "BSD",
+        "website": "https://numpy.org/",
+        "description": "Scientific computing library.",
+        "file": "LICENSE-numpy-BSD.txt"
+    },
+    {
+        "name": "sounddevice",
+        "license": "MIT",
+        "website": "https://python-sounddevice.readthedocs.io/",
+        "description": "Audio capture library.",
+        "file": "LICENSE-sounddevice-MIT.txt"
+    },
+    {
+        "name": "deep-translator",
+        "license": "MIT",
+        "website": "https://github.com/nidhaloff/deep-translator",
+        "description": "Translation library.",
+        "file": "LICENSE-deep-translator-MIT.txt"
+    }
+]

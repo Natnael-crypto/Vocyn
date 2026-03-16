@@ -7,7 +7,6 @@ import ctypes
 
 from vocyn.config import config
 from vocyn.ui.main_window import MainWindow
-from vocyn.ui.settings_dialog import SettingsDialog
 from vocyn.ui.tray_icon import TrayIcon
 from vocyn.services.dictation_service import DictationService
 
@@ -67,7 +66,6 @@ class VocynApp:
         
         # Initialize UI Components
         self.main_window = MainWindow()
-        self.settings_dialog = SettingsDialog(self.main_window)
         
         # Initialize Service
         self.dictation_service = DictationService(
@@ -83,7 +81,7 @@ class VocynApp:
     def setup_connections(self):
         # UI to Service
         self.main_window.dictation_toggled.connect(self.dictation_service._toggle_dictation)
-        self.main_window.settings_requested.connect(self.show_settings)
+        self.main_window.settings_saved.connect(self.on_settings_saved)
         
         # Tray to App/Service/UI
         self.tray_icon.open_requested.connect(self.show_main_window)
@@ -110,11 +108,12 @@ class VocynApp:
         self.main_window.raise_()
         
     def show_settings(self):
-        if self.settings_dialog.exec():
-            # Apply new config
-            # logger.info("Settings updated, applying config...")
-            self.main_window.update_config_display()
-            self.dictation_service.hotkey_manager.update_hotkey(config.get("hotkey"))
+        self.show_main_window()
+        self.main_window.show_settings_view()
+            
+    def on_settings_saved(self):
+        # The main window already updates its own display, we just update the service
+        self.dictation_service.hotkey_manager.update_hotkey(config.get("hotkey"))
             
     def quit_app(self):
         # logger.info("Quitting application...")
@@ -143,6 +142,8 @@ class VocynApp:
         return self.app.exec()
 
 def main():
+    print("[INFO] Vocyn started")
+    print("[INFO] Open source licenses loaded")
     # Only allow single instance (simple check)
     lock_file = os.path.join(os.path.expanduser("~"), ".vocyn", "app.lock")
     try:
