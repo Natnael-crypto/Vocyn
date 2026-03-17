@@ -5,6 +5,7 @@ from PyInstaller.utils.hooks import collect_data_files
 datas = collect_data_files("faster_whisper")
 datas += [('../vocyn_icon.ico', '.')]
 datas += [('../vocyn/assets/start_rec.wav', 'vocyn/assets')]
+datas += [('../vocyn/assets/*.svg', 'vocyn/assets')]
 datas += [('../vocyn/licenses/*', 'vocyn/licenses')]
 
 a = Analysis(
@@ -79,13 +80,16 @@ pyz = PYZ(a.pure)
 exe = EXE(
     pyz,
     a.scripts,
+    a.binaries,
+    a.datas,
     [],
-    exclude_binaries=True,
-    name='Vocyn',
+    name='vocyn',
     debug=False,
     bootloader_ignore_signals=False,
     strip=False,
     upx=False,
+    upx_exclude=[],
+    runtime_tmpdir=None,
     console=False,
     disable_windowed_traceback=False,
     argv_emulation=False,
@@ -93,14 +97,4 @@ exe = EXE(
     codesign_identity=None,
     entitlements_file=None,
     icon=['../vocyn_icon.ico'],
-)
-
-coll = COLLECT(
-    exe,
-    a.binaries,
-    a.datas,
-    strip=False,
-    upx=False,
-    upx_exclude=[],
-    name='Vocyn',
 )
