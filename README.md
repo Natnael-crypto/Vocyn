@@ -1,10 +1,8 @@
 # Vocyn
 
 <div align="center">
-  <img src="vocyn_icon.png" alt="Vocyn Logo" width="120">
-  <br><br>
-  <img src="images/home.png" alt="Vocyn Home Interface" width="600">
-  <p><b>Lightweight, blazing-fast, privacy-first alternative to WhisperFlow.ai</b></p>
+  <img src="images/home.png" alt="Vocyn Home Interface" width="400">
+  <p><b>Lightweight, fast, privacy-first alternative to WhisperFlow.ai</b></p>
 </div>
 
 <p align="center">
@@ -19,7 +17,7 @@
 
 **Vocyn** is a next-generation desktop application for real-time, on-device speech-to-text (STT) and multi-language translation. Designed for uncompromising speed and complete user privacy, Vocyn lives quietly in your system tray and empowers you to dictate text *anywhere* with a simple global hotkey.
 
-No cloud subscriptions, no data harvesting—just pure, local AI transcription powered by the state-of-the-art Faster-Whisper engine.
+No cloud subscriptions, no data harvesting just pure, local AI transcription powered by the state-of-the-art Faster-Whisper engine.
 
 ---
 
