@@ -1,0 +1,12 @@
+PyInstaller
+PySide6
+deep_translator
+faster-whisper
+groq
+keyboard
+numpy
+openai
+pynput
+requests
+sounddevice
+tqdm
