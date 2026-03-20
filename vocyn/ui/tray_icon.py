@@ -16,9 +16,10 @@ class TrayIcon(QSystemTrayIcon):
         
         self.menu = QMenu()
         self.menu.setStyleSheet("""
-            QMenu { background-color: #1A1A1A; color: #E0E0E0; border: 1px solid #383838; }
-            QMenu::item { padding: 5px 20px; }
-            QMenu::item:selected { background-color: #2C2C2C; }
+            QMenu { background-color: #FFFFFF; color: #221F1C; border: 1px solid #E9E4DD; border-radius: 8px; }
+            QMenu::item { padding: 6px 20px; font-family: 'Inter', 'Segoe UI', sans-serif; font-size: 13px; }
+            QMenu::item:selected { background-color: #F2EFE9; }
+            QMenu::separator { height: 1px; background: #E9E4DD; margin: 4px 8px; }
         """)
         
         self.action_open = QAction("Open Dashboard", self)

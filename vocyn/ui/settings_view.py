@@ -1,12 +1,102 @@
 from PySide6.QtWidgets import (
     QWidget, QVBoxLayout, QHBoxLayout, QLabel, 
     QComboBox, QCheckBox, QPushButton, QSlider,
-    QRadioButton, QButtonGroup, QGroupBox, QScrollArea, QFrame,
+    QRadioButton, QButtonGroup, QScrollArea, QFrame,
     QLineEdit
 )
 from PySide6.QtCore import Qt, Signal
+from PySide6.QtGui import QCursor
 from vocyn.config import config
+import os
+import sys
+
+def get_asset_path(filename):
+    if getattr(sys, 'frozen', False) and hasattr(sys, '_MEIPASS'):
+        return os.path.join(sys._MEIPASS, 'vocyn', 'assets', filename)
+    return os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))), "assets", filename)
+
+ARROW_PATH = get_asset_path("ic_drop_down.svg").replace('\\', '/')
+
+class NonScrollingComboBox(QComboBox):
+    def wheelEvent(self, event):
+        event.ignore()
 from vocyn.audio import get_available_microphones
+
+# ─── Light Theme Colors ──────────────────────────────────────────────────────
+C_BG         = "#F8F9FC"
+C_FG         = "#221F1C"
+C_CARD       = "#FFFFFF"
+C_PRIMARY    = "#221F1C"
+C_PRIMARY_FG = "#FAF8F5"
+C_SECONDARY  = "#F5EDCF"
+C_MUTED      = "#F2EFE9"
+C_MUTED_FG   = "#857F79"
+C_BORDER     = "#E9E4DD"
+C_INPUT      = "#E9E4DD"
+
+
+class SettingSection(QFrame):
+    """A rounded card section that groups related settings."""
+    def __init__(self, title, parent=None):
+        super().__init__(parent)
+        self.setObjectName("section")
+        self.setStyleSheet(f"""
+            QFrame#section {{
+                background-color: {C_CARD};
+                border-radius: 12px;
+                border: 1px solid {C_BORDER};
+            }}
+        """)
+        self._layout = QVBoxLayout(self)
+        self._layout.setContentsMargins(0, 0, 0, 0)
+        self._layout.setSpacing(0)
+        
+        # Section title (shown ABOVE the card externally, not inside)
+        # We add it inside for simplicity but with transparent bg
+        lbl_title = QLabel(title.upper())
+        lbl_title.setStyleSheet(f"""
+            font-size: 10px; font-weight: 700; color: {C_MUTED_FG};
+            letter-spacing: 1.5px; padding: 14px 16px 6px 16px;
+        """)
+        self._layout.addWidget(lbl_title)
+    
+    def add_row(self, widget):
+        self._layout.addWidget(widget)
+
+
+class SettingRow(QFrame):
+    """A single row inside a setting section."""
+    def __init__(self, label, description=None, parent=None):
+        super().__init__(parent)
+        self.setStyleSheet(f"""
+            QFrame {{
+                background-color: transparent;
+                border: none;
+                border-bottom: 1px solid {C_BORDER};
+            }}
+        """)
+        self._layout = QHBoxLayout(self)
+        self._layout.setContentsMargins(16, 10, 16, 10)
+        self._layout.setSpacing(12)
+        
+        left = QVBoxLayout()
+        left.setSpacing(2)
+        
+        lbl = QLabel(label)
+        lbl.setStyleSheet(f"font-size: 13px; font-weight: 600; color: {C_FG}; border: none;")
+        left.addWidget(lbl)
+        
+        if description:
+            desc = QLabel(description)
+            desc.setStyleSheet(f"font-size: 11px; color: {C_MUTED_FG}; font-weight: 400; border: none;")
+            desc.setWordWrap(True)
+            left.addWidget(desc)
+        
+        self._layout.addLayout(left, 1)
+    
+    def add_control(self, widget):
+        self._layout.addWidget(widget)
+
 
 class SettingsView(QWidget):
     settings_saved = Signal()
@@ -26,72 +116,98 @@ class SettingsView(QWidget):
         }
     }
 
+    COMBO_STYLE = f"""
+        QComboBox {{
+            background-color: {C_CARD};
+            color: {C_FG};
+            border: 1px solid {C_BORDER};
+            border-radius: 6px;
+            padding: 4px 10px;
+            min-height: 28px;
+            font-size: 12px;
+            font-family: 'Inter', 'Segoe UI', sans-serif;
+        }}
+        QComboBox:hover {{ border: 1px solid {C_MUTED_FG}; }}
+        QComboBox::drop-down {{ border: none; width: 24px; }}
+        QComboBox::down-arrow {{
+            image: url({ARROW_PATH});
+            width: 10px;
+            height: 6px;
+            margin-right: 8px;
+        }}
+        QComboBox QAbstractItemView {{
+            background-color: {C_CARD};
+            color: {C_FG};
+            selection-background-color: {C_MUTED};
+            border: 1px solid {C_BORDER};
+            outline: none;
+            padding: 4px 0px;
+            font-size: 12px;
+        }}
+    """
+
+    LINEEDIT_STYLE = f"""
+        QLineEdit {{
+            background-color: {C_CARD};
+            color: {C_FG};
+            border: 1px solid {C_BORDER};
+            border-radius: 6px;
+            padding: 4px 10px;
+            min-height: 28px;
+            font-size: 12px;
+            font-family: 'Inter', 'Segoe UI', sans-serif;
+        }}
+        QLineEdit:focus {{ border: 1px solid {C_MUTED_FG}; }}
+    """
+
     def __init__(self, parent=None):
         super().__init__(parent)
-        self.setStyleSheet("""
-            QWidget { background-color: #000000; color: #E0E0E0; font-family: 'Inter', 'Segoe UI', sans-serif; }
-            QLabel { color: #E0E0E0; font-weight: bold; }
-            QLabel#desc { color: #888888; font-weight: normal; font-size: 11px; margin-bottom: 5px; }
-            
-            QComboBox {
-                background-color: #111111;
-                color: #FFFFFF;
-                border: 1px solid #333333;
-                border-radius: 6px;
-                padding: 6px 12px;
-                min-height: 32px;
-            }
-            QComboBox:hover { border: 1px solid #555555; }
-            QComboBox::drop-down { border: none; width: 30px; }
-            QComboBox::down-arrow {
-                image: none;
-                border-left: 5px solid transparent;
-                border-right: 5px solid transparent;
-                border-top: 5px solid #AAAAAA;
-                margin-right: 12px;
-                margin-top: 2px;
-            }
-            QComboBox QAbstractItemView {
-                background-color: #111111;
-                color: #FFFFFF;
-                selection-background-color: #222222;
-                border: 1px solid #333333;
-                outline: none;
-                padding: 5px 0px;
-            }
-            QScrollBar:vertical {
-                border: none;
-                background: #000000;
-                width: 8px;
-                margin: 0px;
-            }
-            QScrollBar::handle:vertical { background: #333333; min-height: 20px; border-radius: 4px; }
-            QScrollBar::handle:vertical:hover { background: #555555; }
-            QScrollBar::add-line:vertical, QScrollBar::sub-line:vertical { height: 0px; }
-
-            QPushButton {
-                background-color: #222222;
-                color: #FFFFFF;
-                border: 1px solid #333333;
-                border-radius: 6px;
-                padding: 8px 16px;
-                font-weight: bold;
-            }
-            QPushButton:hover { background-color: #333333; border: 1px solid #444444; }
-            QPushButton#save { background-color: #FFFFFF; color: #000000; font-weight: bold; border: none; }
-            QPushButton#save:hover { background-color: #E0E0E0; }
-
-            QCheckBox { spacing: 10px; color: #E0E0E0; }
-            QCheckBox::indicator { width: 40px; height: 20px; border-radius: 10px; background-color: #222222; border: 1px solid #333333; }
-            QCheckBox::indicator:checked { background-color: #FFFFFF; border: 1px solid #FFFFFF; }
-            
-            QRadioButton { spacing: 10px; color: #E0E0E0; }
-            QRadioButton::indicator { width: 14px; height: 14px; border-radius: 7px; background-color: #222222; border: 1px solid #444444; }
-            QRadioButton::indicator:checked { background-color: #FFFFFF; border: 1px solid #FFFFFF; }
-            QRadioButton::indicator:hover { border: 1px solid #888888; }
-            
-            QSlider::groove:horizontal { border: 1px solid #333333; height: 4px; background: #222222; margin: 2px 0; border-radius: 2px; }
-            QSlider::handle:horizontal { background: #FFFFFF; border: 1px solid #FFFFFF; width: 14px; height: 14px; margin: -5px 0; border-radius: 7px; }
+        self.setObjectName("settingsView")
+        self.setStyleSheet(f"""
+            QWidget#settingsView {{ 
+                background-color: {C_BG}; 
+            }}
+            QWidget {{
+                color: {C_FG}; 
+                font-family: 'Inter', 'Segoe UI', sans-serif; 
+            }}
+            QRadioButton {{ spacing: 8px; color: {C_FG}; font-size: 13px; }}
+            QRadioButton::indicator {{ 
+                width: 16px; height: 16px; border-radius: 8px; 
+                background-color: {C_CARD}; border: 2px solid {C_BORDER}; 
+            }}
+            QRadioButton::indicator:checked {{ 
+                background-color: {C_PRIMARY}; border: 2px solid {C_PRIMARY}; 
+            }}
+            QRadioButton::indicator:hover {{ border: 2px solid {C_MUTED_FG}; }}
+            QCheckBox {{ spacing: 8px; color: {C_FG}; font-size: 13px; }}
+            QCheckBox::indicator {{ 
+                width: 38px; height: 20px; border-radius: 10px; 
+                background-color: {C_BORDER}; border: none; 
+            }}
+            QCheckBox::indicator:checked {{ 
+                background-color: {C_PRIMARY}; border: none; 
+            }}
+            QSlider::groove:horizontal {{ 
+                border: none; height: 4px; 
+                background: {C_BORDER}; border-radius: 2px; 
+            }}
+            QSlider::handle:horizontal {{ 
+                background: {C_PRIMARY}; border: none; 
+                width: 16px; height: 16px; margin: -6px 0; border-radius: 8px; 
+            }}
+            QSlider::sub-page:horizontal {{
+                background: {C_PRIMARY}; border-radius: 2px;
+            }}
+            QScrollBar:vertical {{
+                border: none; background: {C_BG}; width: 6px;
+                border-radius: 3px; margin: 4px 2px;
+            }}
+            QScrollBar::handle:vertical {{ 
+                background: {C_BORDER}; min-height: 30px; border-radius: 3px; 
+            }}
+            QScrollBar::handle:vertical:hover {{ background: {C_MUTED_FG}; }}
+            QScrollBar::add-line:vertical, QScrollBar::sub-line:vertical {{ height: 0px; }}
         """)
         self.setup_ui()
         self.load_current_settings()
@@ -101,16 +217,6 @@ class SettingsView(QWidget):
         main_layout.setContentsMargins(0, 0, 0, 0)
         main_layout.setSpacing(0)
         
-        # Header
-        header = QWidget()
-        header.setStyleSheet("background-color: transparent;")
-        header_layout = QVBoxLayout(header)
-        header_layout.setContentsMargins(30, 30, 30, 10)
-        lbl_h1 = QLabel("Settings")
-        lbl_h1.setStyleSheet("font-size: 24px; font-weight: bold; color: #FFFFFF;")
-        header_layout.addWidget(lbl_h1)
-        main_layout.addWidget(header)
-        
         scroll = QScrollArea()
         scroll.setWidgetResizable(True)
         scroll.setFrameShape(QFrame.NoFrame)
@@ -119,20 +225,38 @@ class SettingsView(QWidget):
         
         container = QWidget()
         container.setObjectName("container")
-        container.setStyleSheet("#container { background-color: transparent; }")
+        container.setStyleSheet(f"#container {{ background-color: {C_BG}; }}")
         layout = QVBoxLayout(container)
-        layout.setContentsMargins(30, 10, 30, 30)
-        layout.setSpacing(20)
+        layout.setContentsMargins(20, 40, 20, 100)
+        layout.setSpacing(16)
         
-        # Audio Device
-        self.create_section_label(layout, "Audio Device", "Select your microphone for dictation.")
-        self.combo_mic = QComboBox()
+        # ── Header ──
+        header_layout = QHBoxLayout()
+        header_layout.setSpacing(8)
+        lbl_h1 = QLabel("Settings")
+        lbl_h1.setStyleSheet(f"font-size: 22px; font-weight: 700; color: {C_FG};")
+        header_layout.addWidget(lbl_h1)
+        header_layout.addStretch()
+        layout.addLayout(header_layout)
+        layout.addSpacing(8)
+        
+        # ── Audio Section ──
+        sec_audio = SettingSection("Audio")
+        row_mic = SettingRow("Microphone", "Select audio input device")
+        self.combo_mic = NonScrollingComboBox()
+        self.combo_mic.setStyleSheet(self.COMBO_STYLE)
+        self.combo_mic.setFixedWidth(150)
         self.combo_mic.addItems(get_available_microphones())
-        layout.addWidget(self.combo_mic)
-        
-        # Language
-        self.create_section_label(layout, "Input Language", "Spoken language to detect.")
-        self.combo_lang = QComboBox()
+        row_mic.add_control(self.combo_mic)
+        sec_audio.add_row(row_mic)
+        layout.addWidget(sec_audio)
+
+        # ── Language Section ──
+        sec_lang = SettingSection("Language")
+        row_lang = SettingRow("Input Language", "Whisper language for transcription")
+        self.combo_lang = NonScrollingComboBox()
+        self.combo_lang.setStyleSheet(self.COMBO_STYLE)
+        self.combo_lang.setFixedWidth(130)
         
         self.whisper_languages = {
             "auto": "Auto Detect",
@@ -159,142 +283,201 @@ class SettingsView(QWidget):
         }
         for val, lbl in self.whisper_languages.items():
             self.combo_lang.addItem(lbl, userData=val)
-        layout.addWidget(self.combo_lang)
+        row_lang.add_control(self.combo_lang)
+        sec_lang.add_row(row_lang)
+        layout.addWidget(sec_lang)
+
+        # ── Transcription Mode Section ──
+        sec_mode = SettingSection("Transcription Mode")
         
-        layout.addSpacing(10)
+        mode_widget = QWidget()
+        mode_widget.setStyleSheet("background-color: transparent; border: none;")
+        mode_layout = QVBoxLayout(mode_widget)
+        mode_layout.setContentsMargins(16, 10, 16, 10)
+        mode_layout.setSpacing(10)
         
-        # Translation Mode
-        self.create_section_label(layout, "Transcription Mode", "Choose if you want to transcribe or translate speech.")
         self.radio_group = QButtonGroup(self)
-        self.radio_transcribe = QRadioButton("Transcribe only (Original language)")
+        self.radio_transcribe = QRadioButton("Transcribe only")
         self.radio_translate = QRadioButton("Translation")
         self.radio_group.addButton(self.radio_transcribe)
         self.radio_group.addButton(self.radio_translate)
         
         self.radio_transcribe.toggled.connect(self.on_mode_changed)
         self.radio_translate.toggled.connect(self.on_mode_changed)
-        layout.addWidget(self.radio_transcribe)
         
-        self.trans_container = QGroupBox()
-        self.trans_container.setStyleSheet("QGroupBox { border: none; margin-top: 0px; }")
-        trans_container_layout = QHBoxLayout(self.trans_container)
-        trans_container_layout.setContentsMargins(0, 5, 0, 0)
+        mode_layout.addWidget(self.radio_transcribe)
+        mode_layout.addWidget(self.radio_translate)
         
-        trans_container_layout.addWidget(self.radio_translate)
-        
-        self.combo_target_lang = QComboBox()
+        self.target_lang_row = QWidget()
+        self.target_lang_row.setStyleSheet("border: none;")
+        tl_layout = QHBoxLayout(self.target_lang_row)
+        tl_layout.setContentsMargins(0, 4, 0, 0)
+        tl_lbl = QLabel("Target Language")
+        tl_lbl.setStyleSheet(f"font-size: 13px; color: {C_MUTED_FG}; border: none;")
+        self.combo_target_lang = NonScrollingComboBox()
+        self.combo_target_lang.setStyleSheet(self.COMBO_STYLE)
+        self.combo_target_lang.setFixedWidth(130)
         for val, lbl in self.whisper_languages.items():
             if val != "auto":
                 self.combo_target_lang.addItem(lbl, userData=val)
+        tl_layout.addWidget(tl_lbl)
+        tl_layout.addStretch()
+        tl_layout.addWidget(self.combo_target_lang)
+        mode_layout.addWidget(self.target_lang_row)
         
-        trans_container_layout.addWidget(self.combo_target_lang)
+        sec_mode.add_row(mode_widget)
+        layout.addWidget(sec_mode)
+
+        # ── LLM Refinement Section ──
+        sec_llm = SettingSection("LLM Refinement")
         
-        trans_container_layout.addStretch()
-        layout.addWidget(self.trans_container)
-        
-        # LLM Refinement
-        self.create_section_label(layout, "LLM Refinement", "Refine transcriptions using an external LLM.")
-        llm_layout = QHBoxLayout()
-        
-        self.combo_llm_provider = QComboBox()
+        row_provider = SettingRow("Provider")
+        self.combo_llm_provider = NonScrollingComboBox()
+        self.combo_llm_provider.setStyleSheet(self.COMBO_STYLE)
+        self.combo_llm_provider.setFixedWidth(110)
         self.combo_llm_provider.addItems(["None", "OpenAI", "Groq"])
-        llm_layout.addWidget(self.combo_llm_provider)
+        row_provider.add_control(self.combo_llm_provider)
+        sec_llm.add_row(row_provider)
         
-        self.combo_llm_category = QComboBox()
-        llm_layout.addWidget(self.combo_llm_category)
+        self.row_category = SettingRow("Category")
+        self.combo_llm_category = NonScrollingComboBox()
+        self.combo_llm_category.setStyleSheet(self.COMBO_STYLE)
+        self.combo_llm_category.setFixedWidth(110)
+        self.row_category.add_control(self.combo_llm_category)
+        sec_llm.add_row(self.row_category)
         
-        self.combo_llm_model = QComboBox()
+        self.row_model = SettingRow("Model")
+        self.combo_llm_model = NonScrollingComboBox()
+        self.combo_llm_model.setStyleSheet(self.COMBO_STYLE)
+        self.combo_llm_model.setFixedWidth(150)
         self.combo_llm_model.setEditable(True)
-        llm_layout.addWidget(self.combo_llm_model)
+        self.row_model.add_control(self.combo_llm_model)
+        sec_llm.add_row(self.row_model)
         
+        self.row_apikey = SettingRow("API Key")
         self.input_llm_api_key = QLineEdit()
-        self.input_llm_api_key.setPlaceholderText("API Key")
+        self.input_llm_api_key.setPlaceholderText("Enter key")
         self.input_llm_api_key.setEchoMode(QLineEdit.Password)
-        self.input_llm_api_key.setStyleSheet("""
-            QLineEdit {
-                background-color: #111111;
-                color: #FFFFFF;
-                border: 1px solid #333333;
-                border-radius: 6px;
-                padding: 6px 12px;
-                min-height: 20px;
-            }
-        """)
-        llm_layout.addWidget(self.input_llm_api_key)
+        self.input_llm_api_key.setStyleSheet(self.LINEEDIT_STYLE)
+        self.input_llm_api_key.setFixedWidth(150)
+        self.row_apikey.add_control(self.input_llm_api_key)
+        sec_llm.add_row(self.row_apikey)
         
         self.combo_llm_provider.currentTextChanged.connect(self.on_llm_provider_changed)
         self.combo_llm_category.currentTextChanged.connect(self.on_llm_category_changed)
-        layout.addLayout(llm_layout)
-        
-        # Model
-        self.create_section_label(layout, "Transcription Model", "Larger models are more accurate but slower.")
-        self.combo_model = QComboBox()
+        layout.addWidget(sec_llm)
+
+        # ── Transcription Model Section ──
+        sec_model = SettingSection("Transcription Model")
+        row_model = SettingRow("Whisper Model", "Larger models are more accurate but slower")
+        self.combo_model = NonScrollingComboBox()
+        self.combo_model.setStyleSheet(self.COMBO_STYLE)
+        self.combo_model.setFixedWidth(90)
         self.combo_model.addItems(["tiny", "base", "small"])
-        layout.addWidget(self.combo_model)
+        row_model.add_control(self.combo_model)
+        sec_model.add_row(row_model)
+        layout.addWidget(sec_model)
+
+        # ── Silence Timeout Section ──
+        sec_timeout = SettingSection("Silence Timeout")
         
-        # Silence Timeout
-        self.create_section_label(layout, "Silence Timeout (sec)", "Delay before transcribing speech.")
+        timeout_widget = QWidget()
+        timeout_widget.setStyleSheet("background-color: transparent; border: none;")
+        timeout_layout = QVBoxLayout(timeout_widget)
+        timeout_layout.setContentsMargins(16, 10, 16, 14)
+        timeout_layout.setSpacing(8)
+        
+        timeout_header = QHBoxLayout()
+        lbl_timeout_title = QLabel("Timeout Duration")
+        lbl_timeout_title.setStyleSheet(f"font-size: 13px; font-weight: 600; color: {C_FG}; border: none;")
+        self.lbl_timeout_val = QLabel("1.5s")
+        self.lbl_timeout_val.setStyleSheet(f"font-size: 13px; font-weight: 700; color: {C_FG}; border: none;")
+        timeout_header.addWidget(lbl_timeout_title)
+        timeout_header.addStretch()
+        timeout_header.addWidget(self.lbl_timeout_val)
+        timeout_layout.addLayout(timeout_header)
+        
         self.slider_timeout = QSlider(Qt.Horizontal)
         self.slider_timeout.setRange(8, 25)
         self.slider_timeout.setSingleStep(1)
-        
-        self.lbl_timeout_val = QLabel("1.5s")
         self.slider_timeout.valueChanged.connect(
-            lambda v: self.lbl_timeout_val.setText(f"{v/10.0}s")
+            lambda v: self.lbl_timeout_val.setText(f"{v/10.0:.1f}s")
         )
-        h_layout = QHBoxLayout()
-        h_layout.addWidget(self.slider_timeout)
-        h_layout.addWidget(self.lbl_timeout_val)
-        layout.addLayout(h_layout)
+        timeout_layout.addWidget(self.slider_timeout)
         
-        # Hotkey
-        self.create_section_label(layout, "Global Hotkey", "Shortcut to toggle recording.")
-        self.combo_hotkey = QComboBox()
+        range_layout = QHBoxLayout()
+        lbl_min = QLabel("0.8s")
+        lbl_min.setStyleSheet(f"font-size: 10px; color: {C_MUTED_FG}; border: none;")
+        lbl_max = QLabel("2.5s")
+        lbl_max.setStyleSheet(f"font-size: 10px; color: {C_MUTED_FG}; border: none;")
+        range_layout.addWidget(lbl_min)
+        range_layout.addStretch()
+        range_layout.addWidget(lbl_max)
+        timeout_layout.addLayout(range_layout)
+        
+        sec_timeout.add_row(timeout_widget)
+        layout.addWidget(sec_timeout)
+
+        # ── Global Hotkey Section ──
+        sec_hotkey = SettingSection("Global Hotkey")
+        row_hotkey = SettingRow("Shortcut", "Toggle transcription")
+        self.combo_hotkey = NonScrollingComboBox()
+        self.combo_hotkey.setStyleSheet(self.COMBO_STYLE)
+        self.combo_hotkey.setFixedWidth(140)
         self.combo_hotkey.addItems([
             "ctrl+alt+space", "ctrl+shift+space", "alt+space", "shift+f12"
         ])
         self.combo_hotkey.setEditable(True)
-        layout.addWidget(self.combo_hotkey)
+        row_hotkey.add_control(self.combo_hotkey)
+        sec_hotkey.add_row(row_hotkey)
+        layout.addWidget(sec_hotkey)
+
+        # ── System Section ──
+        sec_system = SettingSection("System")
+        row_tray = SettingRow("Run in Tray", "Minimize to system tray on close")
+        self.check_tray = QRadioButton()
+        self.check_tray.setAutoExclusive(False)
+        row_tray.add_control(self.check_tray)
+        sec_system.add_row(row_tray)
+        layout.addWidget(sec_system)
         
-        # Run in tray
-        self.check_tray = QCheckBox("Run minimized to tray")
-        layout.addWidget(self.check_tray)
+        layout.addSpacing(8)
+
+        # ── Save Button ──
+        self.btn_save = QPushButton("Save Settings")
+        self.btn_save.setCursor(QCursor(Qt.PointingHandCursor))
+        self.btn_save.setFixedHeight(44)
+        self.btn_save.setStyleSheet(f"""
+            QPushButton {{
+                background-color: {C_PRIMARY};
+                color: {C_PRIMARY_FG};
+                border: none;
+                border-radius: 12px;
+                font-size: 14px;
+                font-weight: 700;
+                font-family: 'Inter', 'Segoe UI', sans-serif;
+            }}
+            QPushButton:hover {{
+                background-color: #3A3630;
+            }}
+        """)
+        self.btn_save.clicked.connect(self.save_settings)
+        layout.addWidget(self.btn_save)
         
         layout.addStretch()
         scroll.setWidget(container)
         main_layout.addWidget(scroll)
         
-        # Save Button
-        btn_container = QWidget()
-        btn_container.setObjectName("button_container")
-        btn_container.setStyleSheet("#button_container { background-color: #000000; border-top: 1px solid #1A1A1A; }")
-        btn_layout = QHBoxLayout(btn_container)
-        btn_layout.setContentsMargins(30, 20, 30, 20)
-        
-        btn_save = QPushButton("Save Settings")
-        btn_save.setObjectName("save")
-        btn_save.setMinimumWidth(120)
-        btn_save.clicked.connect(self.save_settings)
-        btn_layout.addStretch()
-        btn_layout.addWidget(btn_save)
-        
-        main_layout.addWidget(btn_container)
-        
-    def create_section_label(self, layout, title, desc):
-        lbl_title = QLabel(title)
-        lbl_desc = QLabel(desc)
-        lbl_desc.setObjectName("desc")
-        layout.addWidget(lbl_title)
-        layout.addWidget(lbl_desc)
-
     def on_mode_changed(self):
         is_translate = self.radio_translate.isChecked()
-        self.combo_target_lang.setVisible(is_translate)
+        self.target_lang_row.setVisible(is_translate)
 
     def on_llm_provider_changed(self, text):
-        self.input_llm_api_key.setVisible(text != "None")
-        self.combo_llm_category.setVisible(text != "None")
-        self.combo_llm_model.setVisible(text != "None")
+        show = text != "None"
+        self.row_category.setVisible(show)
+        self.row_model.setVisible(show)
+        self.row_apikey.setVisible(show)
+        self.input_llm_api_key.setVisible(show)
         
         self.combo_llm_category.clear()
         if text in self.MODEL_HIERARCHY:
@@ -338,7 +521,6 @@ class SettingsView(QWidget):
         
         self.on_llm_provider_changed(llm_prov)
         
-        # Try to find category for current model to set it correctly
         saved_model = config.get("llm_model", "")
         if llm_prov in self.MODEL_HIERARCHY:
             for cat, models in self.MODEL_HIERARCHY[llm_prov].items():

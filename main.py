@@ -8,7 +8,9 @@ import ctypes
 from vocyn.config import config
 from vocyn.ui.main_window import MainWindow
 from vocyn.ui.tray_icon import TrayIcon
+from vocyn.ui.floating_widget import FloatingWidget
 from vocyn.services.dictation_service import DictationService
+
 
 def create_app_icon():
     """Load the app icon from file, or create a simple generated icon as fallback."""
@@ -68,11 +70,13 @@ class VocynApp:
         
         # Initialize UI Components
         self.main_window = MainWindow()
+        self.floating_widget = FloatingWidget()
         
         # Initialize Service
         self.dictation_service = DictationService(
             status_callback=self.signals.status_changed.emit,
             transcription_callback=self.signals.transcription.emit,
+            audio_level_callback=self.floating_widget.update_level,
             error_callback=self.signals.error.emit
         )
         
@@ -98,8 +102,17 @@ class VocynApp:
         self.main_window.set_status(status)
         self.tray_icon.update_state(status)
         
+        # Show/Hide floating widget
+        if status in ["Listening", "Processing", "Loading Model..."]:
+            self.floating_widget.show_widget()
+            # Set loading state if applicable
+            self.floating_widget.set_loading(status == "Loading Model...")
+        elif status == "Idle" or "Error" in status:
+            self.floating_widget.hide_widget()
+        
         if config.get("desktop_notifications", True) and status in ["Listening", "Processing"]:
             self.tray_icon.showMessage("Vocyn", f"Dictation: {status}", QSystemTrayIcon.Information, 1000)
+
 
     def _on_transcription(self, text, language):
         """Called by service when text is transcribed."""

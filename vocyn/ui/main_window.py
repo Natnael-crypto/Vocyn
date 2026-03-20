@@ -1,12 +1,14 @@
 from PySide6.QtWidgets import (
     QMainWindow, QWidget, QVBoxLayout, QHBoxLayout, 
     QLabel, QPushButton, QFrame, QScrollArea, QSizePolicy,
-    QApplication, QToolTip, QStackedWidget
+    QApplication, QToolTip, QStackedWidget, QGraphicsDropShadowEffect,
+    QToolButton
 )
-from PySide6.QtCore import Qt, QSize, Signal, QPoint
-from PySide6.QtGui import QFont, QIcon, QColor, QCursor
+from PySide6.QtCore import Qt, QSize, Signal, QPoint, QPropertyAnimation, QEasingCurve
+from PySide6.QtGui import QFont, QIcon, QColor, QCursor, QPixmap, QPainter, QPainterPath
 import os
 import sys
+from datetime import datetime
 
 def get_asset_path(filename):
     if getattr(sys, 'frozen', False) and hasattr(sys, '_MEIPASS'):
@@ -19,102 +21,167 @@ from vocyn.ui.licenses_view import LicensesView
 from vocyn.ui.about_view import AboutView
 
 
-# Modern LiveKit-inspired dark theme
-STYLESHEET = """
-QMainWindow {
-    background-color: #000000;
-}
-QWidget {
-    background-color: transparent;
-    color: #E0E0E0;
+# ─── Light Theme Colors (from NewUI index.css :root) ─────────────────────────
+C_BG         = "#F8F9FC"   # cool light background
+C_FG         = "#221F1C"   # dark brown foreground
+C_CARD       = "#FFFFFF"   # white cards
+C_CARD_FG    = "#221F1C"
+C_PRIMARY    = "#221F1C"   # dark brown primary (buttons, active nav)
+C_PRIMARY_FG = "#FAF8F5"   # light text on primary
+C_SECONDARY  = "#F5EDCF"   # warm yellow (banner, highlights)
+C_SEC_FG     = "#221F1C"
+C_MUTED      = "#F2EFE9"   # light muted background
+C_MUTED_FG   = "#857F79"   # muted text / secondary text
+C_BORDER     = "#E9E4DD"   # subtle warm border
+C_ACCENT     = "#F5EDCF"   # warm yellow accent
+C_INPUT      = "#E9E4DD"   # input borders
+
+
+STYLESHEET = f"""
+QMainWindow {{
+    background-color: {C_BG};
+}}
+QWidget#centralwidget {{
+    background-color: {C_BG};
+}}
+QWidget {{
+    color: {C_FG};
     font-family: 'Inter', 'Segoe UI', Arial, sans-serif;
-}
-QFrame#card {
-    background-color: #111111;
+}}
+QFrame#card {{
+    background-color: {C_CARD};
     border-radius: 12px;
-    border: 1px solid #1A1A1A;
-}
-QPushButton {
-    background-color: #222222;
-    border: 1px solid #333333;
-    border-radius: 6px;
+    border: 1px solid {C_BORDER};
+}}
+QPushButton {{
+    background-color: {C_MUTED};
+    border: 1px solid {C_BORDER};
+    border-radius: 8px;
     padding: 8px 16px;
-    font-weight: bold;
-}
-QPushButton:hover {
-    background-color: #333333;
-    border: 1px solid #444444;
-}
-QPushButton#action_btn {
-    background-color: #FFFFFF;
-    color: #000000;
+    font-weight: 600;
+    color: {C_FG};
+    font-family: 'Inter', 'Segoe UI', sans-serif;
+}}
+QPushButton:hover {{
+    background-color: {C_BORDER};
+}}
+QPushButton#action_btn {{
+    background-color: {C_PRIMARY};
+    color: {C_PRIMARY_FG};
     border: none;
-}
-QPushButton#action_btn:hover {
-    background-color: #E0E0E0;
-}
-QLabel#h1 {
-    font-size: 24px;
-    font-weight: bold;
-    color: #FFFFFF;
-}
-QLabel#h2 {
-    font-size: 14px;
-    color: #888888;
-    margin-bottom: 8px;
-}
-QLabel#metric_val {
-    font-size: 16px;
-    font-weight: bold;
-    color: #FFFFFF;
-}
-QLabel#metric_lbl {
-    font-size: 11px;
-    color: #888888;
-    text-transform: uppercase;
-    font-weight: bold;
-}
-QScrollArea {
+    border-radius: 12px;
+    padding: 10px 20px;
+    font-weight: 700;
+    font-size: 13px;
+}}
+QPushButton#action_btn:hover {{
+    background-color: #3A3630;
+}}
+QLabel#h1 {{
+    font-size: 22px;
+    font-weight: 700;
+    color: {C_FG};
+}}
+QLabel#h2 {{
+    font-size: 12px;
+    color: {C_MUTED_FG};
+    font-weight: 600;
+    letter-spacing: 1px;
+}}
+QScrollArea {{
     border: none;
     background-color: transparent;
-}
-QScrollBar:vertical {
+}}
+QScrollBar:vertical {{
     border: none;
-    background: #000000;
-    width: 8px;
-    border-radius: 4px;
-}
-QScrollBar::handle:vertical {
-    background: #333333;
-    min-height: 20px;
-    border-radius: 4px;
-}
+    background: {C_BG};
+    width: 6px;
+    border-radius: 3px;
+    margin: 4px 2px;
+}}
+QScrollBar::handle:vertical {{
+    background: {C_BORDER};
+    min-height: 30px;
+    border-radius: 3px;
+}}
+QScrollBar::handle:vertical:hover {{
+    background: {C_MUTED_FG};
+}}
+QScrollBar::add-line:vertical, QScrollBar::sub-line:vertical {{
+    height: 0px;
+}}
 """
 
-class ClickableLabel(QLabel):
+
+class ActivityItemWidget(QFrame):
+    """Single activity item matching the NewUI design."""
     clicked = Signal(str)
-
-    def __init__(self, text, parent=None):
-        super().__init__(text, parent)
+    
+    def __init__(self, time_str, text, is_audio_note=False, parent=None):
+        super().__init__(parent)
+        self.text_content = text
         self.setCursor(QCursor(Qt.PointingHandCursor))
-        self.setWordWrap(True)
-        self.setStyleSheet("""
-            QLabel {
-                color: #CCCCCC; 
-                font-size: 13px; 
-                margin: 4px 0px;
-                padding: 8px;
-                border-radius: 6px;
-            }
-            QLabel:hover {
-                background-color: #1A1A1A;
-                color: #FFFFFF;
-            }
+        self.setStyleSheet(f"""
+            QFrame {{
+                background-color: transparent;
+                border: none;
+                border-bottom: 1px solid {C_BORDER};
+                padding: 0px;
+            }}
+            QFrame:hover {{
+                background-color: {C_MUTED};
+            }}
         """)
-
+        
+        layout = QHBoxLayout(self)
+        layout.setContentsMargins(0, 14, 0, 14)
+        layout.setSpacing(14)
+        
+        # Time label
+        lbl_time = QLabel(time_str)
+        lbl_time.setStyleSheet(f"color: {C_MUTED_FG}; font-size: 12px; font-weight: 500; border: none;")
+        lbl_time.setFixedWidth(65)
+        layout.addWidget(lbl_time)
+        
+        # Text
+        if is_audio_note:
+            lbl_text = QLabel("🔇 Audio is silence")
+            lbl_text.setStyleSheet(f"color: {C_MUTED_FG}; font-size: 13px; font-style: italic; border: none;")
+        else:
+            lbl_text = QLabel(text)
+            lbl_text.setStyleSheet(f"color: {C_FG}; font-size: 13px; border: none;")
+        lbl_text.setWordWrap(True)
+        layout.addWidget(lbl_text, 1)
+    
     def mousePressEvent(self, event):
         if event.button() == Qt.LeftButton:
-            self.clicked.emit(self.text())
+            self.clicked.emit(self.text_content)
+
+
+class StatPill(QFrame):
+    """Compact stat pill for the stats bar (matching screenshot: icon + value + label in a row)."""
+    def __init__(self, value, label, parent=None):
+        super().__init__(parent)
+        self.setStyleSheet(f"""
+            QFrame {{
+                background-color: {C_MUTED};
+                border-radius: 16px;
+                border: none;
+                padding: 0px;
+            }}
+        """)
+        
+        layout = QHBoxLayout(self)
+        layout.setContentsMargins(12, 6, 12, 6)
+        layout.setSpacing(4)
+        
+        self.lbl_value = QLabel(str(value))
+        self.lbl_value.setStyleSheet(f"font-size: 12px; font-weight: 600; color: {C_FG}; border: none;")
+        layout.addWidget(self.lbl_value)
+    
+    def set_value(self, val):
+        self.lbl_value.setText(str(val))
+
 
 class MainWindow(QMainWindow):
     dictation_toggled = Signal()
@@ -123,26 +190,29 @@ class MainWindow(QMainWindow):
     def __init__(self):
         super().__init__()
         self.setWindowTitle("Vocyn")
-        self.setFixedSize(540, 600)
+        self.setFixedSize(420, 720)
         self.setStyleSheet(STYLESHEET)
         
         self.recent_transcriptions = []
+        self.transcription_count = 0
+        self.session_count = 0
         
         self.setup_ui()
 
     def setup_ui(self):
         central_widget = QWidget()
+        central_widget.setObjectName("centralwidget")
         main_layout = QHBoxLayout(central_widget)
         main_layout.setContentsMargins(0, 0, 0, 0)
         main_layout.setSpacing(0)
         
-        # --- Main Content Area ---
+        # --- Stacked Widget ---
         self.stacked_widget = QStackedWidget()
         
-        # 1. Dashboard View
-        self.dashboard_view = QWidget()
-        self.setup_dashboard_view()
-        self.stacked_widget.addWidget(self.dashboard_view)
+        # 1. Home View
+        self.home_view = QWidget()
+        self.setup_home_view()
+        self.stacked_widget.addWidget(self.home_view)
         
         # 2. Settings View
         self.settings_view = SettingsView()
@@ -160,91 +230,106 @@ class MainWindow(QMainWindow):
         main_layout.addWidget(self.stacked_widget)
         self.setCentralWidget(central_widget)
         
-        # --- Floating Nav ---
+        # --- Bottom Navigation Bar ---
         self.floating_nav = QFrame(self)
         self.floating_nav.setObjectName("floating_nav")
-        self.floating_nav.setStyleSheet("""
-            QFrame#floating_nav {
-                background-color: #1A1A1A;
-                border: 1px solid #333333;
-                border-radius: 30px;
-            }
+        self.floating_nav.setStyleSheet(f"""
+            QFrame#floating_nav {{
+                background-color: {C_CARD};
+                border: 1px solid {C_BORDER};
+                border-radius: 32px;
+            }}
         """)
+        
+        shadow = QGraphicsDropShadowEffect(self.floating_nav)
+        shadow.setBlurRadius(24)
+        shadow.setColor(QColor(0, 0, 0, 40))
+        shadow.setOffset(0, -2)
+        self.floating_nav.setGraphicsEffect(shadow)
+        
         nav_layout = QHBoxLayout(self.floating_nav)
-        nav_layout.setContentsMargins(15, 10, 15, 10)
-        nav_layout.setSpacing(10)
+        nav_layout.setContentsMargins(12, 12, 12, 12)
+        nav_layout.setSpacing(4)
         
-        self.btn_dashboard = self.create_nav_button(get_asset_path("ic_home.svg"), "Dashboard", active=True)
-        self.btn_settings = self.create_nav_button(get_asset_path("ic_settings.svg"), "Settings")
-        self.btn_licenses = self.create_nav_button(get_asset_path("ic_licenses.svg"), "Licenses")
-        self.btn_about = self.create_nav_button(get_asset_path("ic_about.svg"), "About")
+        self.nav_buttons = []
+        nav_items = [
+            (get_asset_path("ic_home.svg"), "Home"),
+            (get_asset_path("ic_settings.svg"), "Settings"),
+            (get_asset_path("ic_licenses.svg"), "License"),
+            (get_asset_path("ic_about.svg"), "About"),
+        ]
         
-        self.btn_dashboard.clicked.connect(lambda: self.switch_view(0))
-        self.btn_settings.clicked.connect(lambda: self.switch_view(1))
-        self.btn_licenses.clicked.connect(lambda: self.switch_view(2))
-        self.btn_about.clicked.connect(lambda: self.switch_view(3))
-        
-        nav_layout.addWidget(self.btn_dashboard)
-        nav_layout.addWidget(self.btn_settings)
-        nav_layout.addWidget(self.btn_licenses)
-        nav_layout.addWidget(self.btn_about)
+        for i, (icon_path, label) in enumerate(nav_items):
+            btn = self._create_nav_button(icon_path, label, active=(i == 0))
+            btn.clicked.connect(lambda checked, idx=i: self.switch_view(idx))
+            nav_layout.addWidget(btn)
+            self.nav_buttons.append(btn)
         
         self.floating_nav.show()
-        
         self.update_config_display()
         
     def resizeEvent(self, event):
         super().resizeEvent(event)
-        nav_width = 240
-        nav_height = 60
+        nav_width = 340
+        nav_height = 68
         x = (self.width() - nav_width) // 2
-        y = self.height() - nav_height - 30
+        y = self.height() - nav_height - 16
         self.floating_nav.setGeometry(x, y, nav_width, nav_height)
         self.floating_nav.raise_()
 
-    def create_nav_button(self, icon_path, tooltip, active=False):
-        btn = QPushButton()
+    def _create_nav_button(self, icon_path, label, active=False):
+        btn = QToolButton()
+        btn.setText(label)
         btn.setIcon(QIcon(icon_path))
-        btn.setIconSize(QSize(24, 24))
-        btn.setToolTip(tooltip)
+        btn.setIconSize(QSize(22, 22))
+        btn.setToolButtonStyle(Qt.ToolButtonTextUnderIcon)
         btn.setCheckable(True)
         btn.setChecked(active)
-        btn.setFixedSize(40, 40)
-        btn.setStyleSheet(f"""
-            QPushButton {{
-                background-color: {'#333333' if active else 'transparent'};
-                border: {'1px solid #555555' if active else 'none'};
-                border-radius: 20px;
-                padding: 0px;
-            }}
-            QPushButton:hover {{
-                background-color: {'#444444' if active else '#222222'};
-            }}
-            QPushButton:checked {{
-                background-color: #333333;
-                border: 1px solid #555555;
-            }}
-        """)
+        btn.setCursor(QCursor(Qt.PointingHandCursor))
+        btn.setSizePolicy(QSizePolicy.Expanding, QSizePolicy.Expanding)
+        self._apply_nav_style(btn, active)
         return btn
+    
+    def _apply_nav_style(self, btn, active):
+        if active:
+            btn.setStyleSheet(f"""
+                QToolButton {{
+                    background-color: {C_PRIMARY};
+                    color: {C_PRIMARY_FG};
+                    border: none;
+                    border-radius: 16px;
+                    padding: 4px 16px;
+                    font-size: 10px;
+                    font-weight: 700;
+                    font-family: 'Inter', 'Segoe UI', sans-serif;
+                }}
+                QToolButton:hover {{
+                    background-color: #3A3630;
+                }}
+            """)
+        else:
+            btn.setStyleSheet(f"""
+                QToolButton {{
+                    background-color: transparent;
+                    color: {C_MUTED_FG};
+                    border: none;
+                    border-radius: 16px;
+                    padding: 4px 12px;
+                    font-size: 10px;
+                    font-weight: 500;
+                    font-family: 'Inter', 'Segoe UI', sans-serif;
+                }}
+                QToolButton:hover {{
+                    background-color: {C_MUTED};
+                }}
+            """)
         
     def switch_view(self, index):
         self.stacked_widget.setCurrentIndex(index)
-        
-        buttons = [self.btn_dashboard, self.btn_settings, self.btn_licenses, self.btn_about]
-        for i, btn in enumerate(buttons):
+        for i, btn in enumerate(self.nav_buttons):
             active = (i == index)
             btn.setChecked(active)
-            btn.setStyleSheet(f"""
-                QPushButton {{
-                    background-color: {'#333333' if active else 'transparent'};
-                    border: {'1px solid #555555' if active else 'none'};
-                    border-radius: 20px;
-                    padding: 0px;
-                }}
-                QPushButton:hover {{
-                    background-color: {'#444444' if active else '#222222'};
-                }}
-            """)
+            self._apply_nav_style(btn, active)
             
     def show_settings_view(self):
         self.switch_view(1)
@@ -252,217 +337,195 @@ class MainWindow(QMainWindow):
     def on_settings_saved(self):
         self.update_config_display()
         self.settings_saved.emit()
-        self.switch_view(0) # Go back to dashboard after save
+        self.switch_view(0)
         
-    def setup_dashboard_view(self):
-        content_layout = QVBoxLayout(self.dashboard_view)
-        content_layout.setContentsMargins(40, 40, 40, 100) # bottom margin for nav
-        content_layout.setSpacing(24)
-        
-        # Header
-        header_widget = QWidget()
-        header_layout = QVBoxLayout(header_widget)
-        header_layout.setContentsMargins(0, 0, 0, 0)
-        header_layout.setSpacing(5)
-        
-        lbl_h1 = QLabel("System Status")
-        lbl_h1.setObjectName("h1")
-        lbl_h2 = QLabel("Monitor and control the transcription engine.")
-        lbl_h2.setObjectName("h2")
-        
-        header_layout.addWidget(lbl_h1)
-        header_layout.addWidget(lbl_h2)
-        content_layout.addWidget(header_widget)
-        
-        # Control Card (Status & Stop/Start)
-        self.card_control = QFrame()
-        self.card_control.setObjectName("card")
-        self.card_control.setFixedHeight(90)
-        card_control_layout = QHBoxLayout(self.card_control)
-        card_control_layout.setContentsMargins(24, 20, 24, 20)
-        
-        self.lbl_status_dot = QLabel("●")
-        self.lbl_status_dot.setStyleSheet("color: #4CAF50; font-size: 20px;")
-        
-        status_text_layout = QVBoxLayout()
-        status_text_layout.setSpacing(2)
-        self.lbl_status_title = QLabel("Engine Idle")
-        self.lbl_status_title.setStyleSheet("font-weight: bold; font-size: 16px; color: #FFFFFF;")
-        self.lbl_status_desc = QLabel(f"Ready on {config.get('audio_device')}")
-        self.lbl_status_desc.setStyleSheet("color: #888888; font-size: 13px;")
-        status_text_layout.addWidget(self.lbl_status_title)
-        status_text_layout.addWidget(self.lbl_status_desc)
-        
-        self.btn_toggle = QPushButton("Start Dictation")
-        self.btn_toggle.setObjectName("action_btn")
-        self.btn_toggle.setFixedWidth(140)
-        self.btn_toggle.clicked.connect(self.dictation_toggled.emit)
-        
-        card_control_layout.addWidget(self.lbl_status_dot)
-        card_control_layout.addSpacing(16)
-        card_control_layout.addLayout(status_text_layout)
-        card_control_layout.addStretch()
-        card_control_layout.addWidget(self.btn_toggle)
-        
-        content_layout.addWidget(self.card_control)
-        
-        # Metrics Cards
-        metrics_layout = QHBoxLayout()
-        metrics_layout.setSpacing(20)
-        
-        self.card_lang = self.create_metric_card("Language", "Auto / English")
-        self.card_mode = self.create_metric_card("Model", "Loading...")
-        self.card_device = self.create_metric_card("Audio Device", "Initializing...")
-        
-        metrics_layout.addWidget(self.card_lang)
-        metrics_layout.addWidget(self.card_mode)
-        metrics_layout.addWidget(self.card_device)
-        content_layout.addLayout(metrics_layout)
-        
-        # Recent Transcriptions
-        self.card_history = QFrame()
-        self.card_history.setObjectName("card")
-        history_layout = QVBoxLayout(self.card_history)
-        history_layout.setContentsMargins(24, 24, 24, 24)
-        
-        header_history_layout = QHBoxLayout()
-        header_history_layout.setContentsMargins(0, 0, 0, 0)
-        
-        lbl_history_title = QLabel("RECENT TRANSCRIPTIONS")
-        lbl_history_title.setObjectName("metric_lbl")
-        
-        self.btn_clear_history = QPushButton("Clear")
-        self.btn_clear_history.setStyleSheet("""
-            QPushButton {
-                background-color: transparent;
-                color: #888888;
-                border: none;
-                font-size: 12px;
-                font-weight: bold;
-                padding: 4px 12px;
-            }
-            QPushButton:hover {
-                color: #FFFFFF;
-                background-color: #222222;
-                border-radius: 4px;
-            }
-        """)
-        self.btn_clear_history.setCursor(QCursor(Qt.PointingHandCursor))
-        self.btn_clear_history.clicked.connect(self.clear_transcriptions)
-        
-        header_history_layout.addWidget(lbl_history_title)
-        header_history_layout.addStretch()
-        header_history_layout.addWidget(self.btn_clear_history)
-        
-        history_layout.addLayout(header_history_layout)
-        history_layout.addSpacing(16)
-        
-        self.history_list_layout = QVBoxLayout()
-        self.history_list_layout.setAlignment(Qt.AlignTop)
-        self.history_list_layout.setSpacing(10)
-        
-        history_widget = QWidget()
-        history_widget.setLayout(self.history_list_layout)
-        
+    # ─── Home View ────────────────────────────────────────────────────────
+    def setup_home_view(self):
         scroll = QScrollArea()
         scroll.setWidgetResizable(True)
-        scroll.setWidget(history_widget)
+        scroll.setFrameShape(QFrame.NoFrame)
+        scroll.setHorizontalScrollBarPolicy(Qt.ScrollBarAlwaysOff)
+        scroll.setStyleSheet("QScrollArea { background-color: transparent; border: none; }")
         
-        history_layout.addWidget(scroll)
+        container = QWidget()
+        container.setObjectName("homeContainer")
+        container.setStyleSheet(f"#homeContainer {{ background-color: {C_BG}; }}")
+        content_layout = QVBoxLayout(container)
+        content_layout.setContentsMargins(20, 40, 20, 100)
+        content_layout.setSpacing(0)
         
-        content_layout.addWidget(self.card_history)
-
-    def create_metric_card(self, title, initial_value):
-        card = QFrame()
-        card.setObjectName("card")
-        card.setFixedHeight(95)
-        layout = QVBoxLayout(card)
-        layout.setContentsMargins(20, 16, 20, 16)
+        # ── Logo Image ──
+        logo_layout = QHBoxLayout()
+        logo_layout.setContentsMargins(0, 0, 0, 0)
         
-        lbl_title = QLabel(title)
-        lbl_title.setObjectName("metric_lbl")
+        logo_path = get_asset_path("logo.png")
+        lbl_logo = QLabel()
+        if os.path.exists(logo_path):
+            pixmap = QPixmap(logo_path)
+            scaled = pixmap.scaledToHeight(48, Qt.SmoothTransformation)
+            lbl_logo.setPixmap(scaled)
+        else:
+            lbl_logo.setText("Vocyn")
+            lbl_logo.setStyleSheet(f"font-size: 18px; font-weight: 700; color: {C_FG};")
         
-        lbl_value = QLabel(initial_value)
-        lbl_value.setObjectName("metric_val")
+        logo_layout.addWidget(lbl_logo)
+        logo_layout.addStretch()
+        content_layout.addLayout(logo_layout)
+        content_layout.addSpacing(16)
         
-        layout.addWidget(lbl_title)
-        layout.addStretch()
-        layout.addWidget(lbl_value)
+        # ── Welcome Heading ──
+        lbl_welcome = QLabel("Welcome back")
+        lbl_welcome.setStyleSheet(f"font-size: 24px; font-weight: 700; color: {C_FG}; font-family: 'Inter', sans-serif;")
+        content_layout.addWidget(lbl_welcome)
+        content_layout.addSpacing(16)
         
-        card.val_label = lbl_value 
-        return card
+        # ── Stats Pills Bar ──
+        stats_layout = QHBoxLayout()
+        stats_layout.setSpacing(8)
+        
+        self.stat_sessions = StatPill( "1 week", "")
+        self.stat_words = StatPill( "0 words", "")
+        
+        stats_layout.addWidget(self.stat_sessions)
+        stats_layout.addWidget(self.stat_words)
+        stats_layout.addStretch()
+        content_layout.addLayout(stats_layout)
+        content_layout.addSpacing(20)
+        
+        # ── Welcome Banner ──
+        banner = QFrame()
+        banner.setObjectName("banner")
+        banner.setStyleSheet(f"""
+            QFrame#banner {{
+                background-color: {C_SECONDARY};
+                border-radius: 16px;
+                border: none;
+            }}
+        """)
+        banner_layout = QVBoxLayout(banner)
+        banner_layout.setContentsMargins(20, 20, 20, 20)
+        banner_layout.setSpacing(8)
+        
+        # Status title in banner
+        self.lbl_status_title = QLabel("Engine Idle")
+        self.lbl_status_title.setStyleSheet(f"font-size: 16px; font-weight: 700; color: {C_FG}; font-style: italic;")
+        banner_layout.addWidget(self.lbl_status_title)
+        
+        self.lbl_status_desc = QLabel(
+            f"Vocyn adapts to how you speak. "
+            f"Ready on {config.get('audio_device', 'Default Microphone')}. "
+            f"Hotkey: {config.get('hotkey', 'ctrl+alt+space').upper()}"
+        )
+        self.lbl_status_desc.setWordWrap(True)
+        self.lbl_status_desc.setStyleSheet(f"font-size: 12px; color: {C_FG}; line-height: 1.5;")
+        banner_layout.addWidget(self.lbl_status_desc)
+        
+        banner_layout.addSpacing(8)
+        
+        self.btn_toggle = QPushButton("✨  Start now")
+        self.btn_toggle.setObjectName("action_btn")
+        self.btn_toggle.setFixedHeight(38)
+        self.btn_toggle.setFixedWidth(130)
+        self.btn_toggle.setCursor(QCursor(Qt.PointingHandCursor))
+        self.btn_toggle.clicked.connect(self.dictation_toggled.emit)
+        banner_layout.addWidget(self.btn_toggle)
+        
+        content_layout.addWidget(banner)
+        content_layout.addSpacing(28)
+        
+        # ── Activity / Recent Transcriptions ──
+        lbl_today = QLabel("TODAY")
+        lbl_today.setObjectName("h2")
+        content_layout.addWidget(lbl_today)
+        content_layout.addSpacing(8)
+        
+        self.activity_card = QFrame()
+        self.activity_card.setObjectName("card")
+        self.activity_layout = QVBoxLayout(self.activity_card)
+        self.activity_layout.setContentsMargins(16, 4, 16, 4)
+        self.activity_layout.setSpacing(0)
+        
+        # Empty state
+        self.lbl_empty = QLabel("No transcriptions yet.\nStart dictation to see your activity here.")
+        self.lbl_empty.setStyleSheet(f"color: {C_MUTED_FG}; font-size: 13px; padding: 24px 0px;")
+        self.lbl_empty.setAlignment(Qt.AlignCenter)
+        self.lbl_empty.setWordWrap(True)
+        self.activity_layout.addWidget(self.lbl_empty)
+        
+        content_layout.addWidget(self.activity_card)
+        content_layout.addStretch()
+        
+        scroll.setWidget(container)
+        
+        home_layout = QVBoxLayout(self.home_view)
+        home_layout.setContentsMargins(0, 0, 0, 0)
+        home_layout.setSpacing(0)
+        home_layout.addWidget(scroll)
 
     def update_config_display(self):
-        lang = config.get("language", "auto").capitalize()
-        if config.get("translate"):
-            lang += " (Translated)"
-        self.card_lang.val_label.setText(lang)
-        
-        mode = config.get("model", "tiny").capitalize()
-        self.card_mode.val_label.setText(mode)
-        
         device = config.get("audio_device", "Default")
-        self.card_device.val_label.setText(device)
+        hotkey = config.get("hotkey", "ctrl+alt+space").upper()
+        model = config.get("model", "tiny").capitalize()
         
-        self.lbl_status_desc.setText(f"Listening on {config.get('audio_device')} • Hotkey: {config.get('hotkey').upper()}")
+        self.lbl_status_desc.setText(
+            f"Vocyn adapts to how you speak. "
+            f"Ready on {device}. Hotkey: {hotkey}"
+        )
         
     def set_status(self, status):
         """Update UI based on dictation service status."""
         self.lbl_status_title.setText(f"Engine {status}")
         
         if status == "Listening":
-            self.lbl_status_dot.setStyleSheet("color: #F44336; font-size: 20px;") # Red
-            self.btn_toggle.setText("Stop Dictation")
+            self.btn_toggle.setText(" Stop")
+            self.session_count += 1
+            self.stat_sessions.set_value(f"{self.session_count} sessions")
         elif status == "Processing":
-            self.lbl_status_dot.setStyleSheet("color: #2196F3; font-size: 20px;") # Blue
-            self.btn_toggle.setText("Stop Dictation")
-        else: # Idle / Loading Error
-            self.lbl_status_dot.setStyleSheet("color: #4CAF50; font-size: 20px;") # Green
-            self.btn_toggle.setText("Start Dictation")
+            self.btn_toggle.setText("Stop")
+        else:
+            self.btn_toggle.setText("Start now")
             
         if "Loading" in status:
-            self.lbl_status_dot.setStyleSheet("color: #FFC107; font-size: 20px;") # Yellow
+            pass
 
     def add_transcription(self, text):
-        """Adds a phrase to the recent transcriptions list."""
         if not text or not text.strip():
             return
-            
         self.recent_transcriptions.insert(0, text)
-        # Keep only the last 20 transcriptions to save memory
         if len(self.recent_transcriptions) > 20:
             self.recent_transcriptions = self.recent_transcriptions[:20]
-            
+        
+        self.transcription_count += len(text.split())
+        self.stat_words.set_value(f"{self.transcription_count} words")
         self.refresh_history_ui()
 
     def refresh_history_ui(self):
-        """Rebuilds the history list UI."""
-        # Clear existing items
-        while self.history_list_layout.count():
-            item = self.history_list_layout.takeAt(0)
+        while self.activity_layout.count():
+            item = self.activity_layout.takeAt(0)
             if item.widget():
                 item.widget().deleteLater()
+        
+        if not self.recent_transcriptions:
+            self.lbl_empty = QLabel("No transcriptions yet.\nStart dictation to see your activity here.")
+            self.lbl_empty.setStyleSheet(f"color: {C_MUTED_FG}; font-size: 13px; padding: 24px 0px;")
+            self.lbl_empty.setAlignment(Qt.AlignCenter)
+            self.lbl_empty.setWordWrap(True)
+            self.activity_layout.addWidget(self.lbl_empty)
+            return
                 
+        now = datetime.now()
         for t in self.recent_transcriptions:
-            lbl = ClickableLabel(t)
-            lbl.clicked.connect(self.copy_to_clipboard)
-            self.history_list_layout.addWidget(lbl)
-            
-            # Add separation line
-            line = QFrame()
-            line.setFrameShape(QFrame.HLine)
-            line.setStyleSheet("border-top: 1px solid #1A1A1A; margin: 0px 8px;")
-            self.history_list_layout.addWidget(line)
+            time_str = now.strftime("%I:%M %p")
+            is_silence = t.strip().lower() in ["", "audio is silence", "silence"]
+            item = ActivityItemWidget(time_str, t, is_audio_note=is_silence)
+            item.clicked.connect(self.copy_to_clipboard)
+            self.activity_layout.addWidget(item)
 
     def copy_to_clipboard(self, text):
-        """Copies text to clipboard and shows feedback."""
         clipboard = QApplication.clipboard()
         clipboard.setText(text)
-        
-        # Show a "Copied!" tooltip at the cursor position
         QToolTip.showText(QCursor.pos(), "Copied to clipboard!", msecShowTime=1500)
 
     def clear_transcriptions(self):
-        """Clears all recent transcriptions."""
         self.recent_transcriptions = []
         self.refresh_history_ui()

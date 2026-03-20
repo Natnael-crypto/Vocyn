@@ -4,61 +4,112 @@ import sys
 from PySide6.QtWidgets import (
     QWidget, QVBoxLayout, QHBoxLayout, QLabel, 
     QTableWidget, QTableWidgetItem, QTextEdit, QHeaderView,
-    QSplitter, QFrame
+    QFrame, QScrollArea
 )
 from PySide6.QtCore import Qt
+
+# ─── Light Theme Colors ──────────────────────────────────────────────────────
+C_BG         = "#F8F9FC"
+C_FG         = "#221F1C"
+C_CARD       = "#FFFFFF"
+C_SECONDARY  = "#F5EDCF"
+C_MUTED      = "#F2EFE9"
+C_MUTED_FG   = "#857F79"
+C_BORDER     = "#E9E4DD"
 
 def get_base_path():
     if getattr(sys, 'frozen', False) and hasattr(sys, '_MEIPASS'):
         return os.path.join(sys._MEIPASS, 'vocyn')
     return os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 
+
+class FeatureItem(QFrame):
+    """Feature list item with checkmark icon."""
+    def __init__(self, label, parent=None):
+        super().__init__(parent)
+        self.setStyleSheet("QFrame { background-color: transparent; border: none; }")
+        layout = QHBoxLayout(self)
+        layout.setContentsMargins(0, 5, 0, 5)
+        layout.setSpacing(10)
+        
+        lbl_check = QLabel("✓")
+        lbl_check.setStyleSheet("font-size: 13px; border: none;")
+        lbl_check.setFixedWidth(20)
+        layout.addWidget(lbl_check)
+        
+        lbl_text = QLabel(label)
+        lbl_text.setStyleSheet(f"font-size: 13px; color: {C_FG}; border: none;")
+        layout.addWidget(lbl_text, 1)
+
+
+class DetailRow(QFrame):
+    """Key-value detail row."""
+    def __init__(self, key, value, parent=None):
+        super().__init__(parent)
+        self.setStyleSheet("QFrame { background-color: transparent; border: none; }")
+        layout = QHBoxLayout(self)
+        layout.setContentsMargins(0, 6, 0, 6)
+        layout.setSpacing(0)
+        
+        lbl_key = QLabel(key)
+        lbl_key.setStyleSheet(f"font-size: 13px; color: {C_MUTED_FG}; border: none;")
+        layout.addWidget(lbl_key)
+        layout.addStretch()
+        lbl_val = QLabel(value)
+        lbl_val.setStyleSheet(f"font-size: 13px; font-weight: 700; color: {C_FG}; border: none;")
+        layout.addWidget(lbl_val)
+
+
 class LicensesView(QWidget):
     def __init__(self, parent=None):
         super().__init__(parent)
-        self.setStyleSheet("""
-            QWidget { background-color: #000000; color: #E0E0E0; font-family: 'Inter', 'Segoe UI', sans-serif; }
-            QLabel { color: #E0E0E0; }
-            QLabel#h1 { font-size: 24px; font-weight: bold; color: #FFFFFF; margin-bottom: 4px; }
-            QLabel#h2 { font-size: 14px; color: #888888; margin-bottom: 20px; }
-            QTableWidget {
-                background-color: #111111;
-                color: #FFFFFF;
-                border: 1px solid #222222;
+        self.setObjectName("licensesView")
+        self.setStyleSheet(f"""
+            QWidget#licensesView {{ 
+                background-color: {C_BG}; 
+            }}
+            QWidget {{
+                color: {C_FG}; 
+                font-family: 'Inter', 'Segoe UI', sans-serif; 
+            }}
+            QTableWidget {{
+                background-color: {C_CARD};
+                color: {C_FG};
+                border: 1px solid {C_BORDER};
                 border-radius: 8px;
-                gridline-color: #1A1A1A;
-            }
-            QTableWidget::item { padding: 8px; }
-            QTableWidget::item:selected { background-color: #222222; color: #FFFFFF; }
-            QHeaderView::section {
-                background-color: #111111;
-                color: #888888;
+                gridline-color: {C_BORDER};
+                font-size: 12px;
+            }}
+            QTableWidget::item {{ padding: 8px; }}
+            QTableWidget::item:selected {{ background-color: {C_MUTED}; color: {C_FG}; }}
+            QHeaderView::section {{
+                background-color: {C_CARD};
+                color: {C_MUTED_FG};
                 border: none;
-                border-bottom: 1px solid #222222;
+                border-bottom: 1px solid {C_BORDER};
                 padding: 8px;
-                font-weight: bold;
-                text-transform: uppercase;
-                font-size: 11px;
-            }
-            QTextEdit {
-                background-color: #111111;
-                color: #AAAAAA;
-                border: 1px solid #222222;
+                font-weight: 700;
+                font-size: 10px;
+                letter-spacing: 1px;
+            }}
+            QTextEdit {{
+                background-color: {C_CARD};
+                color: {C_MUTED_FG};
+                border: 1px solid {C_BORDER};
                 border-radius: 8px;
-                font-family: 'Consolas', monospace;
-                padding: 15px;
-            }
-            QScrollBar:vertical {
-                border: none;
-                background: #000000;
-                width: 8px;
-                margin: 0px;
-            }
-            QScrollBar::handle:vertical { background: #333333; border-radius: 4px; }
-            QSplitter::handle {
-                background-color: transparent;
-                height: 24px;
-            }
+                font-family: 'Consolas', 'Courier New', monospace;
+                padding: 12px;
+                font-size: 11px;
+            }}
+            QScrollBar:vertical {{
+                border: none; background: {C_BG}; width: 6px;
+                border-radius: 3px; margin: 4px 2px;
+            }}
+            QScrollBar::handle:vertical {{ 
+                background: {C_BORDER}; min-height: 30px; border-radius: 3px; 
+            }}
+            QScrollBar::handle:vertical:hover {{ background: {C_MUTED_FG}; }}
+            QScrollBar::add-line:vertical, QScrollBar::sub-line:vertical {{ height: 0px; }}
         """)
 
         self.licenses_data = []
@@ -68,21 +119,154 @@ class LicensesView(QWidget):
         self.load_licenses()
 
     def setup_ui(self):
-        layout = QVBoxLayout(self)
-        layout.setContentsMargins(30, 30, 30, 100)
-        layout.setSpacing(0)
-
-        lbl_title = QLabel("Open Source Licenses")
-        lbl_title.setObjectName("h1")
-        lbl_subtitle = QLabel("Vocyn relies on the following open-source libraries")
-        lbl_subtitle.setObjectName("h2")
+        main_layout = QVBoxLayout(self)
+        main_layout.setContentsMargins(0, 0, 0, 0)
+        main_layout.setSpacing(0)
         
-        layout.addWidget(lbl_title)
-        layout.addWidget(lbl_subtitle)
+        scroll = QScrollArea()
+        scroll.setWidgetResizable(True)
+        scroll.setFrameShape(QFrame.NoFrame)
+        scroll.setHorizontalScrollBarPolicy(Qt.ScrollBarAlwaysOff)
+        scroll.setStyleSheet("QScrollArea { background-color: transparent; border: none; }")
+        
+        container = QWidget()
+        container.setObjectName("container")
+        container.setStyleSheet(f"#container {{ background-color: {C_BG}; }}")
+        layout = QVBoxLayout(container)
+        layout.setContentsMargins(20, 40, 20, 100)
+        layout.setSpacing(0)
+        
+        # ── Header ──
+        header = QHBoxLayout()
+        header.setSpacing(8)
+        lbl_h1 = QLabel("License")
+        lbl_h1.setStyleSheet(f"font-size: 22px; font-weight: 700; color: {C_FG};")
+        header.addWidget(lbl_h1)
+        header.addStretch()
+        layout.addLayout(header)
+        layout.addSpacing(24)
+        
+        # ── Current Plan Card ──
+        plan_card = QFrame()
+        plan_card.setStyleSheet(f"""
+            QFrame {{
+                background-color: {C_SECONDARY};
+                border-radius: 16px;
+                border: none;
+            }}
+        """)
+        plan_layout = QVBoxLayout(plan_card)
+        plan_layout.setContentsMargins(20, 20, 20, 20)
+        plan_layout.setSpacing(8)
+        
+        plan_header = QHBoxLayout()
+        plan_header.setSpacing(8)
+        lbl_name = QLabel("Vocynx")
+        lbl_name.setStyleSheet(f"font-size: 15px; font-weight: 700; color: {C_FG}; border: none;")
+        lbl_badge = QLabel("Open Source")
+        lbl_badge.setStyleSheet(f"""
+            font-size: 9px; font-weight: 700; 
+            color: {C_MUTED_FG}; 
+            background-color: {C_MUTED}; 
+            padding: 2px 8px; 
+            border-radius: 8px; 
+            border: none;
+        """)
+        plan_header.addWidget(lbl_name)
+        plan_header.addWidget(lbl_badge)
+        plan_header.addStretch()
+        plan_layout.addLayout(plan_header)
+        
+        lbl_plan_desc = QLabel("Vocynx is free and open source. All features are available to everyone.")
+        lbl_plan_desc.setWordWrap(True)
+        lbl_plan_desc.setStyleSheet(f"font-size: 12px; color: {C_MUTED_FG}; border: none;")
+        plan_layout.addWidget(lbl_plan_desc)
+        
+        layout.addWidget(plan_card)
+        layout.addSpacing(20)
+        
+        # ── License Details Card ──
+        details_card = QFrame()
+        details_card.setStyleSheet(f"""
+            QFrame {{
+                background-color: {C_CARD};
+                border-radius: 12px;
+                border: 1px solid {C_BORDER};
+            }}
+        """)
+        details_layout = QVBoxLayout(details_card)
+        details_layout.setContentsMargins(16, 16, 16, 16)
+        details_layout.setSpacing(2)
+        
+        lbl_details_title = QLabel("LICENSE DETAILS")
+        lbl_details_title.setStyleSheet(f"font-size: 10px; font-weight: 700; color: {C_MUTED_FG}; letter-spacing: 1.5px; border: none;")
+        details_layout.addWidget(lbl_details_title)
+        details_layout.addSpacing(8)
+        
+        details_layout.addWidget(DetailRow("License Type", "MIT License"))
+        details_layout.addWidget(DetailRow("Repository", "https://github.com/Natnael-crypto/Vocyn"))
+        details_layout.addWidget(DetailRow("First Release", "2026"))
+        details_layout.addWidget(DetailRow("Cost", "Free forever"))
+        
+        layout.addWidget(details_card)
+        layout.addSpacing(20)
+        
+        # ── Included Features Card ──
+        features_card = QFrame()
+        features_card.setStyleSheet(f"""
+            QFrame {{
+                background-color: {C_CARD};
+                border-radius: 12px;
+                border: 1px solid {C_BORDER};
+            }}
+        """)
+        features_layout = QVBoxLayout(features_card)
+        features_layout.setContentsMargins(16, 16, 16, 16)
+        features_layout.setSpacing(2)
+        
+        lbl_features_title = QLabel("INCLUDED FEATURES")
+        lbl_features_title.setStyleSheet(f"font-size: 10px; font-weight: 700; color: {C_MUTED_FG}; letter-spacing: 1.5px; border: none;")
+        features_layout.addWidget(lbl_features_title)
+        features_layout.addSpacing(8)
+        
+        features = [
+            "Unlimited transcriptions",
+            "All Whisper models (tiny, base, small)",
+            "LLM refinement (OpenAI, Groq)",
+            "Real-time translation",
+            "Custom hotkey support",
+            "Priority support",
+        ]
+        for f in features:
+            features_layout.addWidget(FeatureItem(f))
+        
+        layout.addWidget(features_card)
+        layout.addSpacing(20)
+        
+        # ── Enterprise CTA Card ──
+        cta_card = QFrame()
+        cta_card.setStyleSheet(f"""
+            QFrame {{
+                background-color: {C_CARD};
+                border-radius: 12px;
+                border: 1px solid {C_BORDER};
+            }}
+        """)
+        cta_layout = QHBoxLayout(cta_card)
+        cta_layout.setContentsMargins(16, 16, 16, 16)
+        cta_layout.setSpacing(12)
 
-        splitter = QSplitter(Qt.Vertical)
-
-        # Table
+        
+        
+        layout.addWidget(cta_card)
+        layout.addSpacing(24)
+        
+        # ── Open Source Libraries ──
+        lbl_libs_title = QLabel("OPEN SOURCE LIBRARIES")
+        lbl_libs_title.setStyleSheet(f"font-size: 10px; font-weight: 700; color: {C_MUTED_FG}; letter-spacing: 1.5px;")
+        layout.addWidget(lbl_libs_title)
+        layout.addSpacing(12)
+        
         self.table = QTableWidget()
         self.table.setColumnCount(2)
         self.table.setHorizontalHeaderLabels(["Library", "License"])
@@ -93,18 +277,21 @@ class LicensesView(QWidget):
         self.table.setSelectionMode(QTableWidget.SingleSelection)
         self.table.verticalHeader().setVisible(False)
         self.table.setShowGrid(False)
+        self.table.setMinimumHeight(180)
+        self.table.setMaximumHeight(250)
         self.table.itemSelectionChanged.connect(self.on_selection_changed)
-        
-        splitter.addWidget(self.table)
+        layout.addWidget(self.table)
+        layout.addSpacing(12)
 
-        # Text Area
         self.text_area = QTextEdit()
         self.text_area.setReadOnly(True)
-        splitter.addWidget(self.text_area)
+        self.text_area.setMinimumHeight(200)
+        self.text_area.setMaximumHeight(350)
+        layout.addWidget(self.text_area)
         
-        splitter.setHandleWidth(24)
-        splitter.setSizes([200, 400])
-        layout.addWidget(splitter)
+        layout.addStretch()
+        scroll.setWidget(container)
+        main_layout.addWidget(scroll)
 
     def load_licenses(self):
         json_path = os.path.join(self.licenses_dir, "licenses.json")
